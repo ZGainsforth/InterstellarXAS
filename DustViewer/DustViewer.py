@@ -4,6 +4,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 import numpy as np
 from dask.distributed import Client, wait, as_completed
+from genfire.fileio import writeMRC
 
 def InitializeDustmap():
     # Initialize dustmaps using Bayestar2019
@@ -25,13 +26,25 @@ def Cartesian2Spherical(x,y,z):
     return r, theta, phi
 
 # A function for computing the density for a single pixel using Bayestar.
-def GetDensity(x,y,z, bayestar):
-    # def GetDensity(r, phi, theta):
+def GetDensity(x,y,z, bayestar, gradient=True):
     r, theta, phi = Cartesian2Spherical(x,y,z)
-    c = SkyCoord(phi*u.deg, (theta-90)*u.deg, r*u.kpc, frame='galactic')
+    # print(r, theta, phi)
+    c = SkyCoord(phi*u.deg, (theta-90)*u.deg, r*u.pc, frame='galactic')
     rho = bayestar(c, mode='best')
     rho = np.nan_to_num(rho)
-    return x,y,z, rho
+
+    rminus = np.max((r-selectiondistanceincrement, 0))
+    # print(rminus)
+    if rminus < r:
+        # print('subtracting')
+        c = SkyCoord(phi*u.deg, (theta-90)*u.deg, rminus*u.pc, frame='galactic')
+        rhominus = bayestar(c, mode='best')
+        rhominus = np.nan_to_num(rhominus)
+        drho = rho-rhominus
+    else:
+        drho = rho
+
+    return x,y,z, rho, drho
 
 if __name__ == "__main__":
 
@@ -42,16 +55,16 @@ if __name__ == "__main__":
     # client = Client()
     # remote_bayestar = client.scatter(bayestar)
 
-    # Choose a volume in which we will generate our 3D dust map.  Units are kpc.
-    selectiondistance = 15 # Distance from origin to center of one side of the box.
-    selectiondistanceincrement = 1 # Voxel diameter in kpc.
+    # Choose a volume in which we will generate our 3D dust map.  Units are pc.
+    selectiondistance = 1000 # Distance from origin to center of one side of the box.
+    selectiondistanceincrement = 100 # Voxel diameter in pc.
 
     # Make a box, however many kiloparsecs across. 
     v = np.linspace(-selectiondistance, selectiondistance, int(2*selectiondistance/selectiondistanceincrement+1))
     X,Y,Z = np.meshgrid(v, v, v)
     XYZ = np.stack((X.ravel(), Y.ravel(), Z.ravel()), axis=1)
 
-    print(f'Creating a cube {2*selectiondistance} kpc wide, with {selectiondistanceincrement} kpc voxels.')
+    print(f'Creating a cube {2*selectiondistance} pc wide, with {selectiondistanceincrement} pc voxels.')
 
     # # Get the spherical coordinates for each voxel.
     # r,theta,phi = Cartesian2Spherical(X,Y,Z)
@@ -64,6 +77,7 @@ if __name__ == "__main__":
 
     # Make an cube to hold the computed densities.
     rho = np.zeros(Z.shape)
+    drho = np.zeros(Z.shape)
 
     print(GetDensity(100,0,0, bayestar))
     VoxelsDone = 0
@@ -75,7 +89,8 @@ if __name__ == "__main__":
                 VoxelsDone += 1
                 result = GetDensity(X[i,j,k], Y[i,j,k], Z[i,j,k], bayestar)
                 # print(i,j,k, result)
-                rho[i,j,k] = result[-1]
+                rho[i,j,k] = result[-2]
+                drho[i,j,k] = result[-1]
 
     # Doh, not enough RAM do load a bayestar object for each CPU core.  Can't parallelize.  *sniff*
 
@@ -95,5 +110,8 @@ if __name__ == "__main__":
 
     # client.close()
     np.save('rho.npy', rho)
+    writeMRC('rho.mrc', rho)
+    np.save('drho.npy', drho)
+    writeMRC('drho.mrc', drho)
 
     print('-------------------- DONE --------------------')
