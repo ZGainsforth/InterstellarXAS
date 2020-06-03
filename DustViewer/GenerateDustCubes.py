@@ -19,17 +19,17 @@ def InitializeDustmap():
     bayestar = BayestarQuery(max_samples=1)
     return bayestar
 
-# Function to convert our cartesian coordinates to spherical coordinates (i.e. galactic coordinates).
-def Cartesian2Spherical(x,y,z):
-    r = np.sqrt(x**2 + y**2 + z**2)
-    theta = np.arccos(z/r) * 180/np.pi 
-    phi = np.arctan2(y,x) * 180/np.pi + 180
-    theta = np.nan_to_num(theta)
-    phi = np.nan_to_num(phi)
-    # phi[phi==360] = 0
-    if(phi == 360):
-        phi = 0
-    return r, theta, phi
+# # Function to convert our cartesian coordinates to spherical coordinates (i.e. galactic coordinates).
+# def Cartesian2Spherical(x,y,z):
+#     r = np.sqrt(x**2 + y**2 + z**2)
+#     theta = np.arccos(z/r) * 180/np.pi 
+#     phi = np.arctan2(y,x) * 180/np.pi + 180
+#     theta = np.nan_to_num(theta)
+#     phi = np.nan_to_num(phi)
+#     # phi[phi==360] = 0
+#     if(phi == 360):
+#         phi = 0
+#     return r, theta, phi
 
 # Function to convert our cartesian coordinates to spherical coordinates (i.e. galactic coordinates).
 @st.cache
@@ -41,27 +41,6 @@ def Spherical2Cartesian(r, phi, theta):
     y = r * np.sin(phi) * np.sin(theta)
     z = r * np.cos(theta)
     return x, y, z
-
-# A function for computing the density for a single pixel using Bayestar.
-def GetDensity(x,y,z, bayestar, gradient=True):
-    r, theta, phi = Cartesian2Spherical(x,y,z)
-    # print(r, theta, phi)
-    c = SkyCoord(phi*u.deg, (theta-90)*u.deg, r*u.pc, frame='galactic')
-    rho = bayestar(c, mode='best')
-    rho = np.nan_to_num(rho)
-
-    rminus = np.max((r-selectiondistanceincrement, 0))
-    # print(rminus)
-    if rminus < r:
-        # print('subtracting')
-        c = SkyCoord(phi*u.deg, (theta-90)*u.deg, rminus*u.pc, frame='galactic')
-        rhominus = bayestar(c, mode='best')
-        rhominus = np.nan_to_num(rhominus)
-        drho = rho-rhominus
-    else:
-        drho = rho
-
-    return x,y,z, rho, drho
 
 if __name__ == "__main__":
 
