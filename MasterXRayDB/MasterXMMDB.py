@@ -80,6 +80,7 @@ def parse_xray_database():
             index_col=False, delimiter='|')
     # Drop any records that don't have galactic coordinates.
     xray_database.dropna(subset=['lii'], inplace=True)
+    xray_database = xray_database[xray_database['data_in_heasarc'] == 'Y']
     # Also make a version of galactic coordinates ranging from +/- 180 instead of 0-360.
     xray_database['lii_180'] = xray_database['lii'].astype(float).apply(lambda x: x if x < 180 else x-360.)
     return xray_database
@@ -168,7 +169,7 @@ fig_dust.add_trace(go.Scattergl(
     y=plotsubset['bii'], 
     text=list(f'{r[0]}, {r.obsid}, {r.name}' for r in plotsubset.itertuples()),
     mode='markers', 
-    marker=dict(color='green', size=10,opacity=0.5)))
+    marker=dict(color='darkgreen', size=10,opacity=0.5)))
 st.plotly_chart(fig_dust)
 
 ''' ### Currently selected data: '''
@@ -181,7 +182,8 @@ detail_number = st.number_input('Get detailed information on record #: ', format
 st.write(xray_subset.loc[detail_number])
 
 # Download this observation ID if we haven't already done so.
-obsidstr = f"{xray_subset.loc[detail_number]['obsid']:010.0f}"
+obsidnumeric = int(xray_subset.loc[detail_number]['obsid'])
+obsidstr = f"{obsidnumeric:010.0f}"
 if not os.path.isfile(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'.tar')):
     XMMNewton.download_data(obsidstr, filename=os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'.tar'), verbose=True, level='PPS', name='FLUXED')
     # ''' http://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno=0824720101&level=PPS&instrument=RGS1&name=FLUXED '''
@@ -189,7 +191,8 @@ if not os.path.isfile(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', o
     # Now we can extract the gziped fits file (ftz) containing the spectrum and place it on the disk too.
     tar = tarfile.open(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'.tar'))
     for tarinfo in tar:
-        if tarinfo.name == f'{obsidstr}/pps/P{obsidstr}RGX000FLUXED1001.FTZ':
+        # if tarinfo.name == f'{obsidstr}/pps/P{obsidstr}RGX000FLUXED1001.FTZ':
+        if '.FTZ' in tarinfo.name:
             st.write(f'Downloaded spectrum {tarinfo.name}, {tarinfo.size} bytes.')
             spectruminfo = tarinfo
     spectrumfile = tar.extractfile(spectruminfo)
