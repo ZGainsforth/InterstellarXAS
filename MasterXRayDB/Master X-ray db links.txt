@@ -1,0 +1,5 @@
+Info about master x-ray catalog
+https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3catindex.pl#MASTER%20CATALOG
+
+Link to the tar
+https://heasarc.gsfc.nasa.gov/FTP/heasarc/dbase/tdat_files/heasarc_xray.tdat.gz
