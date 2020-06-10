@@ -14,6 +14,7 @@ import astropy.units as u
 # from dustmaps.bayestar import BayestarQuery
 from astroquery.esa.xmm_newton import XMMNewton
 import matplotlib.pyplot as plt
+from numba import njit
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -41,7 +42,25 @@ xray_database = InterstellarXASTools.load_xmm_master_database(config)
 
 st.markdown(f'Currently using {len(xray_database)} records from the XMMMaster database.')
 
-
+@njit
+def DetectPeak(E, Intensity, EnergyList, sigma):
+    # E and Intensity are the input energies and intensity.
+    # EnergyList has 6 elements: (prestart, preend, peakstart, peakend, poststart,postend)
+    # Sigma gives a threshold for how many sigma are necessary in each reason to call it.
+    Eindex = lambda x: np.argmin(np.abs(E-x))
+    # Get the mean value and standard deviation in each of the regions: pre, peak and post
+    prepeak = np.mean(np.abs(Intensity[Eindex(EnergyList[0]):Eindex(EnergyList[1])]))
+    prepeakstd = np.std(np.abs(Intensity[Eindex(EnergyList[0]):Eindex(EnergyList[1])]))
+    onpeak = np.mean(np.abs(Intensity[Eindex(EnergyList[2]):Eindex(EnergyList[3])]))    
+    onpeakstd = np.std(np.abs(Intensity[Eindex(EnergyList[2]):Eindex(EnergyList[3])]))    
+    postpeak = np.mean(np.abs(Intensity[Eindex(EnergyList[4]):Eindex(EnergyList[5])]))
+    postpeakstd = np.std(np.abs(Intensity[Eindex(EnergyList[4]):Eindex(EnergyList[5])]))
+    if ((onpeak - sigma*onpeakstd) > (prepeak + sigma*prepeakstd)) and ((onpeak - sigma*onpeakstd) > (postpeak + sigma*postpeakstd)):
+        # print(prepeak, onpeak, postpeak)
+        return(True)
+    else:
+        return(False)
+ 
 @st.cache
 def GetFeaturesFeL(E, Intensity, plotting=True):
     # Make sure we are dealing with an increasing x-axis.
@@ -58,12 +77,16 @@ def GetFeaturesFeL(E, Intensity, plotting=True):
     # Get the index into the spectrum based on the energy.
     Eindex = lambda x: np.argmin(np.abs(E-x))
 
-    # First we find some fluorescence lines that allow us to rule out spectra.
     features = dict()
-    if np.mean(np.abs(Intensity[Eindex(651.5):Eindex(656.5)])) > 5*np.mean(np.abs(Intensity[Eindex(673.0):Eindex(683.0)])):
-        features['Fluor_654'] = True
-    else:
-        features['Fluor_654'] = False
+    # First we find some fluorescence lines that allow us to rule out spectra.
+
+    # if np.mean(np.abs(Intensity[Eindex(651.5):Eindex(656.5)])) > 5*np.mean(np.abs(Intensity[Eindex(673.0):Eindex(683.0)])):
+    #     features['Fluor_654'] = True
+    # else:
+    #     features['Fluor_654'] = False
+
+    features['Fluor_654'] = DetectPeak(E, Intensity, (638.2, 644.2, 651.5, 656.5, 673.0, 683.0), 1)
+    features['Fluor_755'] = DetectPeak(E, Intensity, (741.3, 749.3, 752.6, 755.9, 760.9, 771.1), 1)
 
     # Trim the spectrum for feature finding to be only from the start of the pre-edge to the end of the post.
     Intensity = Intensity[Eindex(preedge_start):Eindex(postedge_end)]
@@ -146,6 +169,7 @@ def GenerateFeaturesForNSpectra(N=1000):
         # if True:
             # Download this observation ID if we haven't already done so.
             obsidnumeric = int(obsid)
+            print(obsid)
             angstrom, eV, flux, _, _, _ = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
             # Double check that the x-axis is the same.
             if np.all(angstromsum != angstrom):
@@ -160,8 +184,10 @@ def GenerateFeaturesForNSpectra(N=1000):
             pass
     return df
 
+N = st.number_input('Cap input datasize to (-1 for all records): ', value=500)
+
 st.markdown(f'### Features from all data:')
-df = deepcopy(GenerateFeaturesForNSpectra(N=1000))
+df = deepcopy(GenerateFeaturesForNSpectra(N=N))
 st.write(df)
 st.write(df.describe())
 
@@ -174,6 +200,7 @@ st.markdown(f'### Trim dataset and re-view:')
 # Remove spectra with known strong fluorescence lines.
 df_trim = deepcopy(df)
 df_trim = df_trim[df_trim['Fluor_654'] == False]
+df_trim = df_trim[df_trim['Fluor_755'] == False]
 
 # Trim based on the hardedge amplitude
 hardedge_cutoff = st.number_input('Set filtering threshold for hardedge', value=1e-4, format='%g')
@@ -182,6 +209,9 @@ df_trim = df_trim[df_trim['hardedge'] > hardedge_cutoff]
 # Trim based on the noise
 noise_cutoff = st.number_input('Set filtering threshold for noise (stdevdiff/abs(stdev))', value=1, format='%g')
 df_trim = df_trim[df_trim['stdevdiff']/np.abs(df_trim['stdev']) < noise_cutoff]
+
+# Reindex the trimmed set.
+df_trim = df_trim.reset_index()
 
 
 st.write(f'Filtered data contains {len(df_trim)} spectra.')
