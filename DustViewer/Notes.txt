@@ -1,3 +1,0 @@
-Dust viewer allows us to navigate the dust clouds and X-ray sources that are present in our galaxy.
-
-1) Run GenerateDustCubes.py to produce a 1 kpc and 10 kpc dust map.  These will be saved as MRC files.
