@@ -1,6 +1,8 @@
-import streamlit as st
+from copy import deepcopy
 import os, sys, shutil
 import yaml
+
+import streamlit as st
 
 from astropy.constants import c, h, e
 from astropy.io import fits
@@ -68,3 +70,37 @@ def GetSpectrumPortion(E, Intensity, eVmin = 600., eVmax=800.):
     Intensity_trim = np.nan_to_num(Intensity[Eindex(eVmin):Eindex(eVmax)])
     E_trim = E[Eindex(eVmin):Eindex(eVmax)]
     return E_trim, Intensity_trim
+
+def CombineXMMSpectra(config, xray_subset, N=-1):
+    # Load multiple XMM spectra and add them together using records from a dataframe (xray_subset).
+    # N=-1 means to combine all records -- otherwise, N = a maximum number to combine.
+
+    CombiningMessage = st.text('Combining records...')
+
+    # Make structures to hold the sum spectrum.  Load a spectrum of Cyg X-1 that we know is good.
+    obsid = 745250601 # This is a cyg x-1 spectrum
+    angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label = deepcopy(GetOneXMMSpectrum(config, obsid))
+    fluxsum[:] = 0
+    total_observation_time = 0
+
+    # If the dataframe has only one record then we have to specifically index it.  *eyeroll*
+    if len(xray_subset) == 1:
+        N = 1
+
+    for i, r in enumerate(xray_subset.iloc[:N].itertuples()):
+        CombiningMessage.text(f'Record {i} of {len(xray_subset)}')
+        try:
+            # Read this observation ID and add it to the cumulative.
+            obsid = int(r.obsid)
+            obsidnumeric = r.obsid
+            angstrom, eV, flux, _, _, _ = deepcopy(GetOneXMMSpectrum(config, obsid))
+            fluxsum += np.nan_to_num(flux)
+            total_observation_time += np.nan_to_num(r.rgs1_time)
+        except FileNotFoundError as e:
+            CombiningMessage.text(f'Skipping {obsid} -- no spectrum found.')
+        except HTTPError as e:
+            CombiningMessage.text(f'Skipping {obsid} -- no spectrum found.')
+
+    CombiningMessage.text(f'Summed {i+1} spectra with total {total_observation_time} seconds of observation.')
+
+    return angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label, total_observation_time

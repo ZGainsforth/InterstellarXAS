@@ -214,35 +214,38 @@ fig_spec['layout']['xaxis'].update(title=spec.header['TUNIT1'])
 fig_spec['layout']['yaxis'].update(title=spec.header['TUNIT2'])
 st.plotly_chart(fig_spec)
 
+from importlib import reload
+reload(InterstellarXASTools)
+
+
 plot_all_selected_sum = st.checkbox('Sum together and plot all selected data.', False)
 if plot_all_selected_sum:
-    N=-1
-    CombiningMessage = st.text('Combining records...')
+    angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label, total_observation_time = InterstellarXASTools.CombineXMMSpectra(config, xray_subset, -1)
+    # CombiningMessage = st.text('Combining records...')
 
-    # Make structures to hold the sum spectrum.  Load a spectrum of Cyg X-1 that we know is good.
-    obsid = 745250601 # This is a cyg x-1 spectrum
-    angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
-    fluxsum[:] = 0
-    total_observation_time = 0
+    # # Make structures to hold the sum spectrum.  Load a spectrum of Cyg X-1 that we know is good.
+    # obsid = 745250601 # This is a cyg x-1 spectrum
+    # angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
+    # fluxsum[:] = 0
+    # total_observation_time = 0
 
-    # Now loop through all the spectra we want to include in the sum and add them in.
-    for i, obsid in enumerate(xray_subset['obsid'][:N]):
-        CombiningMessage.text(f'Record {i} of {len(xray_subset)}')
-        if True:
-            # Download this observation ID if we haven't already done so.
-            obsidnumeric = int(obsid)
-            angstrom, eV, flux, _, _, _ = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
-            fluxsum += np.nan_to_num(flux)
-            print(xray_subset.query(f'obsid=={obsid}')['rgs1_time'].iloc[0])
-            total_observation_time += xray_subset.query(f'obsid=={obsid}')['rgs1_time'].iloc[0]
+    # # Now loop through all the spectra we want to include in the sum and add them in.
+    # for i, obsid in enumerate(xray_subset['obsid'][:N]):
+    #     CombiningMessage.text(f'Record {i} of {len(xray_subset)}')
+    #     if True:
+    #         # Download this observation ID if we haven't already done so.
+    #         obsidnumeric = int(obsid)
+    #         angstrom, eV, flux, _, _, _ = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
+    #         fluxsum += np.nan_to_num(flux)
+    #         total_observation_time += xray_subset.query(f'obsid=={obsid}')['rgs1_time'].iloc[0]
 
-    CombiningMessage.text(f'Summed {i} spectra with total {total_observation_time} seconds of observation.')
+    # CombiningMessage.text(f'Summed {i} spectra with total {total_observation_time} seconds of observation.')
 
-    fig_spec = px.line(x=eV.astype('float'), y=fluxsum.astype('float'))
+    fig_spec = px.line(x=eVsum.astype('float'), y=fluxsum.astype('float'))
     fig_spec['layout']['xaxis'].update(title=eV_label)
     fig_spec['layout']['yaxis'].update(title='Proportional to: ' + flux_label)
     fig_spec.update_xaxes(range=[650,800])
-    eV_trim, flux_trim = InterstellarXASTools.GetSpectrumPortion(eV, fluxsum, 650, 800)
+    eV_trim, flux_trim = InterstellarXASTools.GetSpectrumPortion(eVsum, fluxsum, 650, 800)
     fig_spec.update_yaxes(range=[np.min(flux_trim), np.max(flux_trim)])
     st.plotly_chart(fig_spec)
 

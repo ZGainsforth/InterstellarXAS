@@ -14,7 +14,7 @@ import astropy.units as u
 # from dustmaps.bayestar import BayestarQuery
 from astroquery.esa.xmm_newton import XMMNewton
 import matplotlib.pyplot as plt
-from numba import njit
+from numba import njit, jit
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -62,6 +62,7 @@ def DetectPeak(E, Intensity, EnergyList, sigma):
         return(False)
  
 @st.cache
+@jit
 def GetFeaturesFeL(E, Intensity, plotting=True):
     # Make sure we are dealing with an increasing x-axis.
     if E[1] < E[0]:
@@ -86,7 +87,9 @@ def GetFeaturesFeL(E, Intensity, plotting=True):
     #     features['Fluor_654'] = False
 
     features['Fluor_654'] = DetectPeak(E, Intensity, (638.2, 644.2, 651.5, 656.5, 673.0, 683.0), 1)
+    features['Fluor_685'] = DetectPeak(E, Intensity, (667.9, 669.8, 682.5, 689.3, 697.7, 706.3), 1)
     features['Fluor_755'] = DetectPeak(E, Intensity, (741.3, 749.3, 752.6, 755.9, 760.9, 771.1), 1)
+    features['Fluor_771'] = DetectPeak(E, Intensity, (750.9, 765.9, 766.0, 774.6, 778.1, 785.2), 1)
 
     # Trim the spectrum for feature finding to be only from the start of the pre-edge to the end of the post.
     Intensity = Intensity[Eindex(preedge_start):Eindex(postedge_end)]
@@ -133,7 +136,7 @@ def GetFeaturesFeL(E, Intensity, plotting=True):
         plt.vlines(707, 0, -features['edgejump'], 'k')
         st.write(plt.gcf())
 
-    features['hardedge'] =  np.mean(Intensity[Eindex(690):Eindex(700)]) - np.mean(Intensity[Eindex(707):Eindex(720)])
+    features['hardedge'] =  np.mean(Intensity[Eindex(700.5):Eindex(704.8)]) - np.mean(Intensity[Eindex(707.7):Eindex(715)])
 
     # # Get height of L3 relative to edge jump.  This is the mean distance from the spectrum to the postedge line in the region of the L3 whiteline.
     # def indFromE(x): return np.argmin(np.abs(E-x))
@@ -182,9 +185,13 @@ def GenerateFeaturesForNSpectra(N=1000):
         except:
             CombiningMessage.text(f'Could not add record {i} of {len(xray_subset)}')
             pass
+
+    # We included an arbitrary spectrum in the first row to get the dataframe started.  Now get rid of it.
+    df = df.loc[1:]
+
     return df
 
-N = st.number_input('Cap input datasize to (-1 for all records): ', value=500)
+N = st.number_input('Cap input datasize to (-1 for all records): ', value=1000)
 
 st.markdown(f'### Features from all data:')
 df = deepcopy(GenerateFeaturesForNSpectra(N=N))
@@ -200,15 +207,28 @@ st.markdown(f'### Trim dataset and re-view:')
 # Remove spectra with known strong fluorescence lines.
 df_trim = deepcopy(df)
 df_trim = df_trim[df_trim['Fluor_654'] == False]
+df_trim = df_trim[df_trim['Fluor_685'] == False]
 df_trim = df_trim[df_trim['Fluor_755'] == False]
+df_trim = df_trim[df_trim['Fluor_771'] == False]
+
+# Remove spectra where the most common value is zero -- these usually have big parts chopped out.
+df_trim = df_trim[df_trim['mode'] != 0]
 
 # Trim based on the hardedge amplitude
-hardedge_cutoff = st.number_input('Set filtering threshold for hardedge', value=1e-4, format='%g')
+hardedge_cutoff = st.number_input('Set filtering threshold for hardedge (higher numbers more stringent):', value=1e-4, format='%g')
 df_trim = df_trim[df_trim['hardedge'] > hardedge_cutoff]
 
 # Trim based on the noise
-noise_cutoff = st.number_input('Set filtering threshold for noise (stdevdiff/abs(stdev))', value=1, format='%g')
+noise_cutoff = st.number_input('Set filtering threshold for noise (stdevdiff/abs(stdev)) (lower numbers more stringent)', value=1.0, format='%g')
 df_trim = df_trim[df_trim['stdevdiff']/np.abs(df_trim['stdev']) < noise_cutoff]
+
+# Trim based on the edge jump
+edgejump_cutoff = st.number_input('Set filtering threshold for edge jump (higher numbers more stringent): ', value=0.0005, format='%g')
+df_trim = df_trim[df_trim['edgejump'] > edgejump_cutoff]
+
+# Trim based on the hardedge/edge jump ratio.  
+jumpoverhard_cutoff = st.number_input('Set filtering threshold for edgejump/hardedge (ratios must be closer than a factor of, lower numbers more stringent): ', value=3.0, format='%g')
+df_trim = df_trim[df_trim['edgejump']/df_trim['hardedge'] < jumpoverhard_cutoff]
 
 # Reindex the trimmed set.
 df_trim = df_trim.reset_index()
@@ -222,6 +242,9 @@ if st.checkbox('Show Sweetviz analysis of filtered data.', False):
     import sweetviz
     sweetviz.analyze(df_trim).show_html()
 
+xray_subset = df_trim.merge(xray_database, on='obsid')
+st.write(xray_subset)
+
 # Plot spectra remaining.
 filtered_index = st.slider('View filtered spectrum: ', 0, len(df_trim)-1, 0)
 angstrom, eV, flux, angstrom_label, eV_label, flux_label = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, int(df_trim.iloc[filtered_index]['obsid'])))
@@ -233,6 +256,21 @@ st.write(f"Vieweing Fe-L edge of obsid={int(df_trim.iloc[filtered_index]['obsid'
 eV_trim, flux_trim = InterstellarXASTools.GetSpectrumPortion(eV, flux, 650, 800)
 fig_spec.update_yaxes(range=[np.min(flux_trim), np.max(flux_trim)])
 st.plotly_chart(fig_spec)
-# st.write(df_trim.iloc[filtered_index]['Fluor_654'])
-# st.write(df_trim.iloc[filtered_index]['test1'])
-st.write(df_trim.iloc[filtered_index]['stdevdiff']/np.abs(df_trim.iloc[filtered_index]['stdev']))
+
+plot_all_selected_sum = st.checkbox('Sum together and plot all selected data.', False)
+if plot_all_selected_sum:
+    angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label, total_observation_time = InterstellarXASTools.CombineXMMSpectra(config, xray_subset, -1)
+    fig_spec = px.line(x=eVsum.astype('float'), y=fluxsum.astype('float'))
+    fig_spec['layout']['xaxis'].update(title=eV_label)
+    fig_spec['layout']['yaxis'].update(title='Proportional to: ' + flux_label)
+    fig_spec.update_xaxes(range=[650,800])
+    eV_trim, flux_trim = InterstellarXASTools.GetSpectrumPortion(eVsum, fluxsum, 650, 800)
+    fig_spec.update_yaxes(range=[np.min(flux_trim), np.max(flux_trim)])
+    st.plotly_chart(fig_spec)
+
+    if st.button('Save sum spectrum'):
+        save_file_root = f'Sum_of_{len(xray_subset)}_spectra_with_{total_observation_time}_seconds'
+        fig_spec.write_image(f'{save_file_root}.png', width=2048, height=1024)
+        fig_spec.write_html(f'{save_file_root}.html')
+        xray_subset.to_csv(f'{save_file_root}.csv')
+        st.write(f'Saved to: {save_file_root} png/html/csv')
