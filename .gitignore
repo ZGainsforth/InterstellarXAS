@@ -1,3 +1,14 @@
+# Project specfic
+*.swp
+*.mrc
+*.html
+*.tvsm
+*dask*
+*.csv
+*.DS_Store
+.getdoc.py
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
