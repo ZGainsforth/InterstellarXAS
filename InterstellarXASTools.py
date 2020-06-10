@@ -83,13 +83,16 @@ def CombineXMMSpectra(config, xray_subset, N=-1):
     fluxsum[:] = 0
     total_observation_time = 0
 
-    # If the dataframe has only one record then we have to specifically index it.  *eyeroll*
-    if len(xray_subset) == 1:
-        N = 1
+    # Two special cases mean we use the whole input subset: 1) the user asks for it with N=-1 or 2) the subset only has one record anyway.
+    if (N == -1) or (len(xray_subset) == 1):
+        xray_iterate = xray_subset
+    else:
+        xray_iterate = xray_subset.iloc[:N]
 
-    for i, r in enumerate(xray_subset.iloc[:N].itertuples()):
-        CombiningMessage.text(f'Record {i} of {len(xray_subset)}')
+    for i, r in enumerate(xray_iterate.itertuples()):
+        CombiningMessage.text(f'Record {i} of {len(xray_iterate)}')
         try:
+            print(r.obsid)
             # Read this observation ID and add it to the cumulative.
             obsid = int(r.obsid)
             obsidnumeric = r.obsid
