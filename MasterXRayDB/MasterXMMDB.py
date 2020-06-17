@@ -115,6 +115,9 @@ min_exposure_filter = st.sidebar.slider('Minimum exposure time (log10(s)):', 0.,
 st.sidebar.text(f'log10({min_exposure_filter}) = {10**min_exposure_filter:0.0f} seconds.')
 xray_subset = xray_subset[xray_subset.rgs1_time > 10**min_exposure_filter]
 
+# Reindex the dataframe so we can tab through it easily.
+xray_subset = xray_subset.reset_index()
+
 @st.cache
 def InitializeDustmap(config):
     # Fetch the planck data if we don't have it yet.
