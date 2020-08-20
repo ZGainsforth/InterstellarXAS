@@ -19,6 +19,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from rich.traceback import install; install()
+from tkinter import filedialog
 
 sys.path.append(os.path.abspath('..'))
 import InterstellarXASTools
@@ -226,24 +227,6 @@ if plot_all_selected_sum:
     angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label, total_observation_time = InterstellarXASTools.CombineXMMSpectra(config, xray_subset, -1)
     # CombiningMessage = st.text('Combining records...')
 
-    # # Make structures to hold the sum spectrum.  Load a spectrum of Cyg X-1 that we know is good.
-    # obsid = 745250601 # This is a cyg x-1 spectrum
-    # angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
-    # fluxsum[:] = 0
-    # total_observation_time = 0
-
-    # # Now loop through all the spectra we want to include in the sum and add them in.
-    # for i, obsid in enumerate(xray_subset['obsid'][:N]):
-    #     CombiningMessage.text(f'Record {i} of {len(xray_subset)}')
-    #     if True:
-    #         # Download this observation ID if we haven't already done so.
-    #         obsidnumeric = int(obsid)
-    #         angstrom, eV, flux, _, _, _ = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
-    #         fluxsum += np.nan_to_num(flux)
-    #         total_observation_time += xray_subset.query(f'obsid=={obsid}')['rgs1_time'].iloc[0]
-
-    # CombiningMessage.text(f'Summed {i} spectra with total {total_observation_time} seconds of observation.')
-
     fig_spec = px.line(x=eVsum.astype('float'), y=fluxsum.astype('float'))
     fig_spec['layout']['xaxis'].update(title=eV_label)
     fig_spec['layout']['yaxis'].update(title='Proportional to: ' + flux_label)
@@ -252,3 +235,17 @@ if plot_all_selected_sum:
     fig_spec.update_yaxes(range=[np.min(flux_trim), np.max(flux_trim)])
     st.plotly_chart(fig_spec)
 
+    FileName = st.text_input('Save sum spectrum to: ', f'{name_filter}.csv')
+    if st.button('Save spectrum...\n'):
+        with open(FileName, 'w') as f:
+            f.write('# Sum spectrum combining XMM spectra:\n')
+            f.write(f'# {"Source Name":15s}, {"obsid":>12s}, {"ra":>12s}, {"dec":>12s}, {"lii":>12s}, {"bii":>12s}, {"time":>12s}\n')
+            for r in xray_subset.itertuples():
+                f.write(f'# {r.name:15s}, {int(r.obsid):12d}, {r.ra:12g}, {r.dec:12g}, {r.lii:12g}, {r.bii:12g}, {r.time:12g}\n')
+            f.write('#\n')
+            f.write(f'Total observation time: {total_observation_time} seconds\n')
+            f.write('#\n')
+            f.write(f'# {eV_label:>19s}, {angstrom_label:>20s}, flux in {flux_label:>12s}\n')
+            for i in range(len(eVsum)):
+                f.write(f'{eVsum[i]:21f}, {angstromsum[i]:20f}, {fluxsum[i]:20f}\n')
+        st.write(f'Wrote {FileName}.csv')
