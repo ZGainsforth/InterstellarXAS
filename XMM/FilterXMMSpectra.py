@@ -157,7 +157,7 @@ def GenerateFeaturesForNSpectra(N=1000):
     xray_subset = xray_database.copy()
     # Get a random record, just to get the x-axis (channels)
     obsid = 745250601 # This is a cyg x-1 spectrum
-    angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
+    angstromsum, eVsum, fluxsum, error, angstrom_label, eV_label, flux_label, error_label = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
     # Get features and make a dataframe.
     xyz = deepcopy(GetFeaturesFeL(eVsum, fluxsum, plotting=False))
     xyz['obsid']=obsid
@@ -173,7 +173,7 @@ def GenerateFeaturesForNSpectra(N=1000):
             # Download this observation ID if we haven't already done so.
             obsidnumeric = int(obsid)
             print(obsid)
-            angstrom, eV, flux, _, _, _ = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
+            angstrom, eV, flux, error, _, _, _, _ = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, obsid))
             # Double check that the x-axis is the same.
             if np.all(angstromsum != angstrom):
                 CombiningMessage.text(f'Could not add record {i} of {len(xray_subset)}')
@@ -247,7 +247,7 @@ st.write(xray_subset)
 
 # Plot spectra remaining.
 filtered_index = st.slider('View filtered spectrum: ', 0, len(df_trim)-1, 0)
-angstrom, eV, flux, angstrom_label, eV_label, flux_label = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, int(df_trim.iloc[filtered_index]['obsid'])))
+angstrom, eV, flux, error, angstrom_label, eV_label, flux_label, error_label = deepcopy(InterstellarXASTools.GetOneXMMSpectrum(config, int(df_trim.iloc[filtered_index]['obsid'])))
 fig_spec = px.line(x=eV.astype('float'), y=flux.astype('float'))
 fig_spec['layout']['xaxis'].update(title=eV_label)
 fig_spec['layout']['yaxis'].update(title='Proportional to: ' + flux_label)
@@ -259,7 +259,7 @@ st.plotly_chart(fig_spec)
 
 plot_all_selected_sum = st.checkbox('Sum together and plot all selected data.', False)
 if plot_all_selected_sum:
-    angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label, total_observation_time = InterstellarXASTools.CombineXMMSpectra(config, xray_subset, -1)
+    angstromsum, eVsum, fluxsum, errorsum, angstrom_label, eV_label, flux_label, error_label, total_observation_time = InterstellarXASTools.CombineXMMSpectra(config, xray_subset, -1)
     fig_spec = px.line(x=eVsum.astype('float'), y=fluxsum.astype('float'))
     fig_spec['layout']['xaxis'].update(title=eV_label)
     fig_spec['layout']['yaxis'].update(title='Proportional to: ' + flux_label)

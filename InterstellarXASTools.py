@@ -46,7 +46,7 @@ def load_xmm_master_database(config):
     xray_database['lii_180'] = xray_database['lii'].astype(float).apply(lambda x: x if x < 180 else x-360.)
     return xray_database
 
-@st.cache
+# @st.cache
 def GetOneXMMSpectrum(config, obsid):
     obsidnumeric = int(obsid)
     obsidstr = f"{obsidnumeric:010.0f}"
@@ -55,9 +55,10 @@ def GetOneXMMSpectrum(config, obsid):
     angstrom = np.nan_to_num(spec.data.field('CHANNEL').copy())
     eV = np.nan_to_num((h*c/(e.si*angstrom*1e-10)).value)
     flux = np.nan_to_num(spec.data.field('FLUX').copy())
+    error = np.nan_to_num(spec.data.field('ERROR').copy())
     spectrumfits.close()
     #       x-axis(lambda),            x-axis(eV),          y-axis,                x-label,                x-label,  y-label
-    return  angstrom.astype('float'),  eV.astype('float'),  flux.astype('float'),  spec.header['TUNIT1'],  'eV',     spec.header['TUNIT2']
+    return  angstrom.astype('float'),  eV.astype('float'),  flux.astype('float'),  error.astype('float'), spec.header['TUNIT1'],  'eV',     spec.header['TUNIT2'],      spec.header['TUNIT3']
 
 def GetSpectrumPortion(E, Intensity, eVmin = 600., eVmax=800.):
     # Make sure we are dealing with an increasing x-axis.
@@ -79,7 +80,7 @@ def CombineXMMSpectra(config, xray_subset, N=-1):
 
     # Make structures to hold the sum spectrum.  Load a spectrum of Cyg X-1 that we know is good.
     obsid = 745250601 # This is a cyg x-1 spectrum
-    angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label = deepcopy(GetOneXMMSpectrum(config, obsid))
+    angstromsum, eVsum, fluxsum, errorsum, angstrom_label, eV_label, flux_label, error_label = deepcopy(GetOneXMMSpectrum(config, obsid))
     fluxsum[:] = 0
     total_observation_time = 0
 
@@ -96,8 +97,14 @@ def CombineXMMSpectra(config, xray_subset, N=-1):
             # Read this observation ID and add it to the cumulative.
             obsid = int(r.obsid)
             obsidnumeric = r.obsid
-            angstrom, eV, flux, _, _, _ = deepcopy(GetOneXMMSpectrum(config, obsid))
+            angstrom, eV, flux, error, _, _, _, _ = deepcopy(GetOneXMMSpectrum(config, obsid))
             fluxsum += np.nan_to_num(flux)
+            if len(xray_iterate) == 1:
+                # Only copy the errors over if this isn't actually a sum of spectra.  
+                errorsum = np.nan_to_num(error)
+            else:
+                # We can't add errors.  So don't pretend we have them when combining spectra.  In the future I'll do an SNR algorithm.
+                errorsum = np.zeros(len(errorsum)) 
             total_observation_time += np.nan_to_num(r.rgs1_time)
         except FileNotFoundError as e:
             CombiningMessage.text(f'Skipping {obsid} -- no spectrum found.')
@@ -106,4 +113,4 @@ def CombineXMMSpectra(config, xray_subset, N=-1):
 
     CombiningMessage.text(f'Summed {i+1} spectra with total {total_observation_time} seconds of observation.')
 
-    return angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label, total_observation_time
+    return angstromsum, eVsum, fluxsum, errorsum, angstrom_label, eV_label, flux_label, error_label, total_observation_time

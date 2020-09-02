@@ -44,7 +44,7 @@ def InitializeDustmap(config):
         dustconfig['data_dir'] = config['DataDirectory']
         from dustmaps.bayestar import fetch
         fetch()
-    bayestar = BayestarQuery()
+    bayestar = BayestarQuery(version='bayestar2015')
     return planck, bayestar
 
 @st.cache
@@ -153,4 +153,11 @@ st.write(Summary)
 st.write(px.scatter(Summary, x='OD', y='rho', text='Source Name', title='rho vs OD for all sources.'))
 st.write(px.scatter(Summary, x='OD', y='Distance (kpc)', text='Source Name', title='distance vs OD for all sources.'))
 st.write(px.scatter(Summary, x='Distance (kpc)', y='rho', text='Source Name', title='rho vs distance for all sources.'))
+st.write(px.scatter(Summary, x='OD', y='lii', text='Source Name'))
+st.write(px.scatter(Summary, x='OD', y='bii', text='Source Name'))
+
+import seaborn as sns
+
+grid = sns.pairplot(Summary, kind='reg')
+st.pyplot()
 

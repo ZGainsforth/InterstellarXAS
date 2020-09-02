@@ -224,7 +224,7 @@ reload(InterstellarXASTools)
 
 plot_all_selected_sum = st.checkbox('Sum together and plot all selected data.', False)
 if plot_all_selected_sum:
-    angstromsum, eVsum, fluxsum, angstrom_label, eV_label, flux_label, total_observation_time = InterstellarXASTools.CombineXMMSpectra(config, xray_subset, -1)
+    angstromsum, eVsum, fluxsum, errorsum, angstrom_label, eV_label, flux_label, error_label, total_observation_time = InterstellarXASTools.CombineXMMSpectra(config, xray_subset, -1)
     # CombiningMessage = st.text('Combining records...')
 
     fig_spec = px.line(x=eVsum.astype('float'), y=fluxsum.astype('float'))
@@ -245,7 +245,7 @@ if plot_all_selected_sum:
             f.write('#\n')
             f.write(f'Total observation time: {total_observation_time} seconds\n')
             f.write('#\n')
-            f.write(f'# {eV_label:>19s}, {angstrom_label:>20s}, flux in {flux_label:>12s}\n')
+            f.write(f'# {eV_label:>19s}, {angstrom_label:>20s}, flux in {flux_label:>12s}, error in {error_label:>12s}\n')
             for i in range(len(eVsum)):
-                f.write(f'{eVsum[i]:21f}, {angstromsum[i]:20f}, {fluxsum[i]:20f}\n')
-        st.write(f'Wrote {FileName}.csv')
+                f.write(f'{eVsum[i]:21f}, {angstromsum[i]:20f}, {fluxsum[i]:20f}, {errorsum[i]:21f}\n')
+        st.write(f'Wrote {FileName}')
