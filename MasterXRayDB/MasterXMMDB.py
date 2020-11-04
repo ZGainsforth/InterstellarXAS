@@ -249,3 +249,16 @@ if plot_all_selected_sum:
             for i in range(len(eVsum)):
                 f.write(f'{eVsum[i]:21f}, {angstromsum[i]:20f}, {fluxsum[i]:20f}, {errorsum[i]:21f}\n')
         st.write(f'Wrote {FileName}')
+    if st.button('Save spectrum Chandra Format...\n'):
+        # For chandra we have to convert flux units.
+        assert flux_label == '1/(s cm^2 A)', 'Flux units are not what we expect before converting to Chandra units of 1/(s cm^2 keV)'
+        assert error_label == '1/(s cm^2 A)', 'Flux error units are not what we expect before converting to Chandra units of 1/(s cm^2 keV)'
+        fluxchandra = fluxsum * 8.07e-2 * angstromsum**2
+        fluxerrorchandra = errorsum * 8.07e-2 * angstromsum**2
+
+        # Now we have everything we need to write the file.
+        with open(FileName, 'w') as f:
+            f.write(f'# keV, flux in {flux_label:>12s}, error in {error_label:>12s}, Counts, {angstrom_label:>20s}, {eV_label:>19s}\n')
+            for i in reversed(range(len(eVsum))):
+                f.write(f'{eVsum[i]/1000:21.6f}  {fluxchandra[i]:20.6f}  {fluxerrorchandra[i]:21.6f}  1.000000, {angstromsum[i]:20.6f}  {eVsum[i]:21.6f}\n')
+        st.write(f'Wrote {FileName}')
