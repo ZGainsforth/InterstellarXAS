@@ -239,9 +239,9 @@ if plot_all_selected_sum:
     if st.button('Save spectrum...\n'):
         with open(FileName, 'w') as f:
             f.write('# Sum spectrum combining XMM spectra:\n')
-            f.write(f'# {"Source Name":15s}, {"obsid":>12s}, {"ra":>12s}, {"dec":>12s}, {"lii":>12s}, {"bii":>12s}, {"time":>12s}\n')
+            f.write(f'# {"Source Name":15s}, {"obsid":>12s}, {"ra":>12s}, {"dec":>12s}, {"lii":>12s}, {"bii":>12s}, {"start time mjd":>14s}, {"end time mjd":>14s}\n')
             for r in xray_subset.itertuples():
-                f.write(f'# {r.name:15s}, {int(r.obsid):12d}, {r.ra:12g}, {r.dec:12g}, {r.lii:12g}, {r.bii:12g}, {r.time:12g}\n')
+                f.write(f'# {r.name:15s}, {int(r.obsid):12d}, {r.ra:12g}, {r.dec:12g}, {r.lii:12g}, {r.bii:12g}, {r.time:14f}, {r.end_time:14f}\n')
             f.write('#\n')
             f.write(f'Total observation time: {total_observation_time} seconds\n')
             f.write('#\n')
@@ -258,7 +258,7 @@ if plot_all_selected_sum:
 
         # Now we have everything we need to write the file.
         with open(FileName, 'w') as f:
-            f.write(f'# keV, flux in {flux_label:>12s}, error in {error_label:>12s}, Counts, {angstrom_label:>20s}, {eV_label:>19s}\n')
+            f.write(f'# keV, flux in {flux_label:>12s}, flux error in {error_label:>12s}, Counts, {angstrom_label:>20s}, {eV_label:>19s}\n')
             for i in reversed(range(len(eVsum))):
-                f.write(f'{eVsum[i]/1000:21.6f}  {fluxchandra[i]:20.6f}  {fluxerrorchandra[i]:21.6f}  1.000000, {angstromsum[i]:20.6f}  {eVsum[i]:21.6f}\n')
+                f.write(f'{eVsum[i]/1000:21.6f}  {fluxchandra[i]:20.6f}  {fluxerrorchandra[i]:21.6f}  {1.000000:20.6f}  {angstromsum[i]:20.6f}  {eVsum[i]:21.6f}\n')
         st.write(f'Wrote {FileName}')
