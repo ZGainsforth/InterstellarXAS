@@ -198,6 +198,9 @@ df = deepcopy(GenerateFeaturesForNSpectra(N=N))
 st.write(df)
 st.write(df.describe())
 
+# Write a CSV putting all this data on disk for other analyses.
+df.to_csv('FeaturesVsobsid.csv')
+
 if st.checkbox('Show Sweetviz analysis of raw data.', False):
     import sweetviz
     sweetviz.analyze(df).show_html()

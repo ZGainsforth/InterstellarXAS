@@ -22,6 +22,6 @@ for i, r in csv.iterrows(): #[['        obsid', 'Orbit phase at start']]:
     x = x[539:730, :]
     x[:,1] -= np.min(x[:,1])
     x[:,1] /= np.max(x[:,1])
-    plt.plot(x[:,0], x[:,1], label=phase, color=(2*np.abs(phase-0.5), 2*np.abs(phase-0.5), 1-2*np.abs(phase-0.5)))
+    plt.plot(x[:,0], x[:,1], label=obsid) #, color=(2*np.abs(phase-0.5), 2*np.abs(phase-0.5), 1-2*np.abs(phase-0.5)))
 plt.legend()
 plt.show()

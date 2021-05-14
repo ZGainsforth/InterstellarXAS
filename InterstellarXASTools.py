@@ -8,6 +8,7 @@ from astropy.constants import c, h, e
 from astropy.io import fits
 import numpy as np
 import pandas as pd
+from urllib.error import HTTPError
 
 def init_config():
     # Read the config.yaml
@@ -110,6 +111,8 @@ def CombineXMMSpectra(config, xray_subset, N=-1):
             CombiningMessage.text(f'Skipping {obsid} -- no spectrum found.')
         except HTTPError as e:
             CombiningMessage.text(f'Skipping {obsid} -- no spectrum found.')
+        except OSError as E:
+            CombiningMessage.text(f'Empty or corrupt FITS file: {obsid}.')
 
     CombiningMessage.text(f'Summed {i+1} spectra with total {total_observation_time} seconds of observation.')
 

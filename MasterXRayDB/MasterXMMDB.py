@@ -122,10 +122,10 @@ xray_subset = xray_subset.reset_index()
 @st.cache
 def InitializeDustmap(config):
     # Fetch the planck data if we don't have it yet.
+    from dustmaps.config import config as dustconfig
+    dustconfig['data_dir'] = config['DataDirectory']
     if not os.path.exists(os.path.join(config['DataDirectory'], 'planck')):
         print('downloading planck data')
-        from dustmaps.config import config as dustconfig
-        dustconfig['data_dir'] = config['DataDirectory']
         from dustmaps.planck import fetch
         fetch()
     planck = PlanckQuery()
@@ -241,7 +241,10 @@ if plot_all_selected_sum:
             f.write('# Sum spectrum combining XMM spectra:\n')
             f.write(f'# {"Source Name":15s}, {"obsid":>12s}, {"ra":>12s}, {"dec":>12s}, {"lii":>12s}, {"bii":>12s}, {"start time mjd":>14s}, {"end time mjd":>14s}\n')
             for r in xray_subset.itertuples():
-                f.write(f'# {r.name:15s}, {int(r.obsid):12d}, {r.ra:12g}, {r.dec:12g}, {r.lii:12g}, {r.bii:12g}, {r.time:14f}, {r.end_time:14f}\n')
+                try:
+                    f.write(f'# {r.name:15s}, {int(r.obsid):12d}, {r.ra:12g}, {r.dec:12g}, {r.lii:12g}, {r.bii:12g}, {r.time:14f}, {r.end_time:14f}\n')
+                except Exception as e:
+                    print (e)
             f.write('#\n')
             f.write(f'Total observation time: {total_observation_time} seconds\n')
             f.write('#\n')
