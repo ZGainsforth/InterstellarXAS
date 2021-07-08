@@ -51,7 +51,15 @@ def load_xmm_master_database(config):
 def GetOneXMMSpectrum(config, obsid):
     obsidnumeric = int(obsid)
     obsidstr = f"{obsidnumeric:010.0f}"
-    spectrumfits = fits.open(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'.ftz'))
+    # The spectrum name can be anything from 1 to 99.  The better spectra are lower numbered (the numbers, are assigned ??? but I think it's autoassigned based on target brightness by the pipeline.)
+    for FTZIndex in range(99):
+        try:
+            spectrumfits = fits.open(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'-'+str(FTZIndex)+'.ftz'))
+        except:
+            pass
+        else:
+            break
+    # spectrumfits = fits.open(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'-1.ftz'))
     spec = spectrumfits[1]
     angstrom = np.nan_to_num(spec.data.field('CHANNEL').copy())
     eV = np.nan_to_num((h*c/(e.si*angstrom*1e-10)).value)

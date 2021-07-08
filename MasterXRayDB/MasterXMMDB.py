@@ -108,6 +108,10 @@ if len(name_filter) > 0:
 
 # Filter by specific query.
 query_filter = st.sidebar.text_input('Filter by Pandas query string:', '')
+st.sidebar.text('Pandas examples:')
+st.sidebar.text('name=="4U1820-30" or name=="4U 1820-30"')
+st.sidebar.text('obsid==653110101 (remember to exclude heading zeros)')
+st.sidebar.text('obsid in [152890301, 152890101, 152890201,]')
 if len(query_filter) > 0:
     xray_subset = xray_subset.query(query_filter)
 
@@ -199,31 +203,70 @@ if not os.path.isfile(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', o
     # ''' http://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno=0824720101&level=PPS&instrument=RGS1&name=FLUXED '''
 
     # Now we can extract the gziped fits file (ftz) containing the spectrum and place it on the disk too.
+    # Always choose the 001 spectrum first since it is usually the brightest source in the FOV.  But don't exclude others.
     tar = tarfile.open(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'.tar'))
     for tarinfo in tar:
-        # if tarinfo.name == f'{obsidstr}/pps/P{obsidstr}RGX000FLUXED1001.FTZ':
+        # if (tarinfo.name == f'{obsidstr}/pps/P{obsidstr}RGX000FLUXED1001.FTZ') or ('.FTZ' in tarinfo.name):
         if '.FTZ' in tarinfo.name:
             st.write(f'Downloaded spectrum {tarinfo.name}, {tarinfo.size} bytes.')
+            FTZIndex = int(tarinfo.name[-7:-4]) # Extract the final 001 or 009, etc, out of the file name.
+            print(FTZIndex)
             spectruminfo = tarinfo
-    spectrumfile = tar.extractfile(spectruminfo)
-    content = spectrumfile.read()
-    with open(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'.ftz'), 'wb') as f:
-        f.write(content)
+            spectrumfile = tar.extractfile(spectruminfo)
+            content = spectrumfile.read()
+            with open(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'-'+str(FTZIndex)+'.ftz'), 'wb') as f:
+                f.write(content)
 
 # Now we can plot it.
-spectrumfits = fits.open(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'.ftz'))
-spec = spectrumfits[1]
-fig_spec = px.line(x=spec.data.field('CHANNEL'), y=spec.data.field('FLUX'))
-fig_spec['layout']['xaxis'].update(title=spec.header['TUNIT1'])
-fig_spec['layout']['yaxis'].update(title=spec.header['TUNIT2'])
-st.plotly_chart(fig_spec)
+# The spectrum name can be anything from 1 to 99.  The better spectra are lower numbered (the numbers, are assigned ??? but I think it's autoassigned based on target brightness by the pipeline.)
+for FTZIndex in range(99):
+    try:
+        spectrumfits = fits.open(os.path.join(config['DataDirectory'], 'XMMNewtonFluxed', obsidstr+'-'+str(FTZIndex)+'.ftz'))
+    except:
+        pass
+    else:
+        break
 
 from importlib import reload
 reload(InterstellarXASTools)
 
+XUnits = st.sidebar.radio('X-axis units', ['eV', 'Angstroms'])
+
+if XUnits == 'Angstroms':
+    spec = spectrumfits[1]
+    fig_spec = px.line(x=spec.data.field('CHANNEL'), y=spec.data.field('FLUX'))
+    fig_spec['layout']['xaxis'].update(title=spec.header['TUNIT1'])
+    fig_spec['layout']['yaxis'].update(title=spec.header['TUNIT2'])
+    st.plotly_chart(fig_spec)
+
+if XUnits == 'eV':
+    angstrom, eV, flux, error, angstrom_label, eV_label, flux_label, error_label =  InterstellarXASTools.GetOneXMMSpectrum(config, obsidstr)
+    fig_spec = px.line(x=eV, y=flux)
+    fig_spec['layout']['xaxis'].update(title=eV_label)
+    fig_spec['layout']['yaxis'].update(title=flux_label)
+    st.plotly_chart(fig_spec)
+
+# Save individual spectra button
+FileName = st.text_input('Save individual obsid spectrum (Chandra format) to: ', f'{name_filter}_obsid{obsidstr}.csv')
+if st.button('Save individual spectrum...\n'):
+    angstrom, eV, flux, error, angstrom_label, eV_label, flux_label, error_label =  InterstellarXASTools.GetOneXMMSpectrum(config, obsidstr)
+    # For chandra we have to convert flux units.
+    assert flux_label == '1/(s cm^2 A)', 'Flux units are not what we expect before converting to Chandra units of 1/(s cm^2 keV)'
+    assert error_label == '1/(s cm^2 A)', 'Flux error units are not what we expect before converting to Chandra units of 1/(s cm^2 keV)'
+    fluxchandra = flux * 8.07e-2 * angstrom**2
+    fluxerrorchandra = error * 8.07e-2 * angstrom**2
+
+    # Now we have everything we need to write the file.
+    with open(FileName, 'w') as f:
+        f.write(f'# keV, flux in {flux_label:>12s}, flux error in {error_label:>12s}, Counts, {angstrom_label:>20s}, {eV_label:>19s}\n')
+        for i in reversed(range(len(eV))):
+            f.write(f'{eV[i]/1000:21.6f}  {fluxchandra[i]:20.6f}  {fluxerrorchandra[i]:21.6f}  {1.000000:20.6f}  {angstrom[i]:20.6f}  {eV[i]:21.6f}\n')
+    st.write(f'Wrote {FileName}')
 
 plot_all_selected_sum = st.checkbox('Sum together and plot all selected data.', False)
 if plot_all_selected_sum:
+
+    # breakpoint()
     angstromsum, eVsum, fluxsum, errorsum, angstrom_label, eV_label, flux_label, error_label, total_observation_time = InterstellarXASTools.CombineXMMSpectra(config, xray_subset, -1)
     # CombiningMessage = st.text('Combining records...')
 
@@ -252,7 +295,7 @@ if plot_all_selected_sum:
             for i in range(len(eVsum)):
                 f.write(f'{eVsum[i]:21f}, {angstromsum[i]:20f}, {fluxsum[i]:20f}, {errorsum[i]:21f}\n')
         st.write(f'Wrote {FileName}')
-    if st.button('Save spectrum Chandra Format...\n'):
+    if st.button('Save sum spectrum Chandra Format...\n'):
         # For chandra we have to convert flux units.
         assert flux_label == '1/(s cm^2 A)', 'Flux units are not what we expect before converting to Chandra units of 1/(s cm^2 keV)'
         assert error_label == '1/(s cm^2 A)', 'Flux error units are not what we expect before converting to Chandra units of 1/(s cm^2 keV)'
