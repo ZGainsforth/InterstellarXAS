@@ -189,11 +189,13 @@ st.plotly_chart(fig_dust)
 ''' ### Currently selected data: '''
 # Show the table with all the sources.
 st.markdown(f'Currently selected {len(xray_subset)} records of {len(xray_database)} from the XMMMaster database:')
-st.dataframe(xray_subset)
+st.dataframe(xray_subset.astype(str))
+xray_subset['obsid'] = xray_subset['obsid'].astype(int)
+xray_subset = xray_subset.infer_objects()
 
 # And a detail for a specific record in case data gets truncated.
-detail_number = st.number_input('Get detailed information on record #: ', format='%d', value=xray_subset.index[0])
-st.write(xray_subset.loc[detail_number])
+detail_number = st.number_input('Get detailed information on record #: ', format='%d', value=xray_subset.index[0], min_value=0, max_value=xray_subset.shape[0]-1)
+#st.dataframe(xray_subset.loc[detail_number])
 
 # Download this observation ID if we haven't already done so.
 obsidnumeric = int(xray_subset.loc[detail_number]['obsid'])
@@ -254,7 +256,9 @@ if st.button('Save individual spectrum...\n'):
     assert flux_label == '1/(s cm^2 A)', 'Flux units are not what we expect before converting to Chandra units of 1/(s cm^2 keV)'
     assert error_label == '1/(s cm^2 A)', 'Flux error units are not what we expect before converting to Chandra units of 1/(s cm^2 keV)'
     fluxchandra = flux * 8.07e-2 * angstrom**2
+    flux_label = '1/(s cm^2 keV)'
     fluxerrorchandra = error * 8.07e-2 * angstrom**2
+    error_label = '1/(s cm^2 keV)'
 
     # Now we have everything we need to write the file.
     with open(FileName, 'w') as f:
@@ -299,8 +303,11 @@ if plot_all_selected_sum:
         # For chandra we have to convert flux units.
         assert flux_label == '1/(s cm^2 A)', 'Flux units are not what we expect before converting to Chandra units of 1/(s cm^2 keV)'
         assert error_label == '1/(s cm^2 A)', 'Flux error units are not what we expect before converting to Chandra units of 1/(s cm^2 keV)'
+        breakpoint()
         fluxchandra = fluxsum * 8.07e-2 * angstromsum**2
+        flux_label = '1/(s cm^2 keV)'
         fluxerrorchandra = errorsum * 8.07e-2 * angstromsum**2
+        error_label = '1/(s cm^2 keV)'
 
         # Now we have everything we need to write the file.
         with open(FileName, 'w') as f:
