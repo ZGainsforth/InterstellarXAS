@@ -5,7 +5,7 @@ from dustmaps.bayestar import BayestarQuery
 from dustmaps.planck import PlanckQuery
 from genfire.fileio import writeMRC
 from io import StringIO
-from numba import njit, jit
+#from numba import njit, jit
 import numpy as np
 import os, sys, shutil
 import pandas as pd
@@ -29,19 +29,17 @@ with open(os.path.join('..', 'Config.yaml'), 'w') as f:
 
 @st.cache
 def InitializeDustmap(config):
+    from dustmaps.config import config as dustconfig
+    dustconfig['data_dir'] = config['DataDirectory']
     # Fetch the planck data if we don't have it yet.
     if not os.path.exists(os.path.join(config['DataDirectory'], 'planck')):
         print('downloading planck data')
-        from dustmaps.config import config as dustconfig
-        dustconfig['data_dir'] = config['DataDirectory']
         from dustmaps.planck import fetch
         fetch()
     planck = PlanckQuery()
     # Fetch the bayestar data if we don't have it yet.
     if not os.path.exists(os.path.join(config['DataDirectory'], 'bayestar')):
         print('downloading bayestar data')
-        from dustmaps.config import config as dustconfig
-        dustconfig['data_dir'] = config['DataDirectory']
         from dustmaps.bayestar import fetch
         fetch()
     bayestar = BayestarQuery(version='bayestar2015')
@@ -93,7 +91,7 @@ def ComputeDustLine(r, lii, bii):
     return(rho, drho)
 
 # Now we'll populate the E(B-V) densities from bayestar.
-Summary['E(B-V)'] = 0
+Summary['E(B-V)'] = 0.0
 rlist = []
 rholist = []
 drholist = []
@@ -107,7 +105,7 @@ for index,row in Summary.iterrows():
     rlist.append(rho)
     rholist.append(rho)
     drholist.append(drho)
-    rhofig.add_trace(go.Line(x=r, y=rho, name=row['Source Name']))
+    rhofig.add_trace(go.Scatter(x=r, y=rho, name=row['Source Name'])) #, line=dict(color='blue')))
     drhofig.add_trace(go.Line(x=r, y=drho, name=row['Source Name']))
 st.write(Summary)
 
@@ -116,6 +114,7 @@ rho = np.max(rholist, axis=1)
 Summary['rho'] = rho
 
 rhofig.update_layout(title_text='E(B-V) as a function of distance to X-ray sources.', xaxis_title='parsec', yaxis_title='E(B-V)')
+rhofig.update_xaxes(type='log', range=[1.5,4])
 drhofig.update_layout(title_text='d(E(B-V))/dr, with r in parsec.', xaxis_title='parsec', yaxis_title='dE(B-V)/dr')
 st.write(rhofig)
 st.write(drhofig)

@@ -7,6 +7,8 @@
 *.csv
 *.DS_Store
 .getdoc.py
+*.pdf
+*.png
 
 
 # Byte-compiled / optimized / DLL files
